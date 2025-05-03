@@ -5,29 +5,87 @@ import BoyStatus from "./BoyStatus.jsx";
 import Header from "./Header.jsx";
 import NavBar from "./NavBar.jsx";
 
-
 function PredictionForm() {
   const [formData, setFormData] = useState({
-    pm25: "", // PM2.5 (µg/m³)
-    pm10: "", // PM10 (µg/m³)
-    no: "", // NO (µg/m³)
-    no2: "", // NO2 (µg/m³)
-    nox: "", // NOx (ppb)
-    nh3: "", // NH3 (µg/m³)
-    so2: "", // SO2 (µg/m³)
-    co: "", // CO (mg/m³)
-    ozone: "", // Ozone (µg/m³)
-    benzene: "", // Benzene (µg/m³)
+    pm25: "",
+    pm10: "",
+    no2: "",
+    nh3: "",
+    so2: "",
+    co: "",
+    ozone: "",
   });
 
-  const [prediction, setPrediction] = useState("");
+  const [formErrors, setFormErrors] = useState({});
+  const [predictionDay1, setPredictionDay1] = useState(null);
+  const [predictionDay2, setPredictionDay2] = useState(null);
+
+  const pollutantLimits = {
+    pm25: { min: 0, max: 200 },
+    pm10: { min: 0, max: 200 },
+    no2: { min: 0, max: 80 },
+    nh3: { min: 0, max: 70 },
+    so2: { min: 0, max: 70 },
+    co: { min: 0, max: 30 },
+    ozone: { min: 0, max: 70 },
+  };
+
+  const isValidNumber = (value) => /^-?\d*\.?\d*$/.test(value);
 
   const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+
+    if (!isValidNumber(value)) {
+      setFormErrors(prev => ({
+        ...prev,
+        [name]: "❌ Only numeric values are allowed",
+      }));
+    } else {
+      const numValue = parseFloat(value);
+      const { min, max } = pollutantLimits[name];
+      if (value === "" || isNaN(numValue) || numValue < min || numValue > max) {
+        setFormErrors(prev => ({
+          ...prev,
+          [name]: `❌ Value must be between ${min} and ${max}`,
+        }));
+      } else {
+        setFormErrors(prev => {
+          const newErrors = { ...prev };
+          delete newErrors[name];
+          return newErrors;
+        });
+      }
+    }
+
+    setFormData(prev => ({ ...prev, [name]: value }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    const errors = {};
+    for (const [key, { min, max }] of Object.entries(pollutantLimits)) {
+      const value = formData[key];
+      const numValue = parseFloat(value);
+
+      if (
+        value === "" ||
+        isNaN(numValue) ||
+        !isValidNumber(value) ||
+        numValue < min ||
+        numValue > max
+      ) {
+        errors[key] = `❌ Value must be between ${min} and ${max}`;
+      }
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
+      return;
+    }
+
+    setFormErrors({});
+
     try {
       const response = await fetch("http://localhost:5000/predict", {
         method: "POST",
@@ -36,80 +94,81 @@ function PredictionForm() {
       });
 
       const data = await response.json();
-      setPrediction(data.prediction);
+      setPredictionDay1(data.prediction_day1);
+      setPredictionDay2(data.prediction_day2);
     } catch (error) {
-      console.error("Error:", error);
+      console.error("Error fetching prediction:", error);
     }
   };
 
-
   return (
-  <>
-  <Header/>
-    <div className="main-container">
-      <h1 className="main-title"> 🌿 Input some polutants to predict the AQI value </h1>
-      <form onSubmit={handleSubmit} className="form-card">
-  <div className="input-group">
-    <label className="input-label">PM2.5 (µg/m³)</label>
-    <input type="number" name="pm25" value={formData.pm25} onChange={handleChange} required className="form-input" placeholder="Enter PM2.5 value" />
-  </div>
-  
-  <div className="input-group">
-    <label className="input-label">PM10 (µg/m³)</label>
-    <input type="number" name="pm10" value={formData.pm10} onChange={handleChange} required className="form-input" placeholder="Enter PM10 value" />
-  </div>
+    <>
+      <Header />
+      <div className="main-container">
+        <h1 className="main-title">🌿 Enter pollutant levels to predict AQI for next two days</h1>
 
+        <form onSubmit={handleSubmit} className="form-card">
+          {Object.entries(pollutantLimits).map(([name, { min, max }]) => {
+            const labelMap = {
+              pm25: "PM2.5",
+              pm10: "PM10",
+              no2: "NO2",
+              nh3: "NH3",
+              so2: "SO2",
+              co: "CO",
+              ozone: "Ozone",
+            };
+            const unitMap = {
+              co: "mg/m³",
+            };
+            const label = labelMap[name];
+            const unit = unitMap[name] || "µg/m³";
 
-  <div className="input-group">
-    <label className="input-label">NO2 (µg/m³)</label>
-    <input type="number" name="no2" value={formData.no2} onChange={handleChange} required className="form-input" placeholder="Enter NO2 value" />
-  </div>
+            return (
+              <div className="input-group" key={name}>
+                <label className="input-label">{label} ({unit})</label>
+                <input
+                  type="text"
+                  name={name}
+                  value={formData[name]}
+                  onChange={handleChange}
+                  className="form-input"
+                  placeholder={`Enter ${label} value`}
+                  required
+                />
+                <small className="hint">Allowed range: {min} - {max}</small>
+                {formErrors[name] && <div className="error-text">{formErrors[name]}</div>}
+              </div>
+            );
+          })}
 
+          <button type="submit" className="submit-btn">🔍 Predict</button>
+        </form>
 
-
-  <div className="input-group">
-    <label className="input-label">NH3 (µg/m³)</label>
-    <input type="number" name="nh3" value={formData.nh3} onChange={handleChange} required className="form-input" placeholder="Enter NH3 value" />
-  </div>
-
-  <div className="input-group">
-    <label className="input-label">SO2 (µg/m³)</label>
-    <input type="number" name="so2" value={formData.so2} onChange={handleChange} required className="form-input" placeholder="Enter SO2 value" />
-  </div>
-
-  <div className="input-group">
-    <label className="input-label">CO (mg/m³)</label>
-    <input type="number" name="co" value={formData.co} onChange={handleChange} required className="form-input" placeholder="Enter CO value" />
-  </div>
-
-  <div className="input-group">
-    <label className="input-label">Ozone (µg/m³)</label>
-    <input type="number" name="ozone" value={formData.ozone} onChange={handleChange} required className="form-input" placeholder="Enter Ozone value" />
-  </div>
-
-
-  <button type="submit" className="submit-btn">
-    🔍 Predict
-  </button>
-</form>
-
-
-      {prediction && (
         <div className="prediction-card">
-          <h2 className="prediction-heading">🔍 Prediction Result</h2>
-          <p className="prediction-text">
-            <span className="prediction-badge">{prediction}</span>
-          </p>
+          <h2 className="prediction-heading">Prediction Results</h2>
+          {predictionDay1 !== null && predictionDay2 !== null ? (
+            <>
+              <p className="prediction-text">
+                <strong>🌤️ AQI of Tomorrow:</strong>{" "}
+                <span className="prediction-badge">{predictionDay1}</span>
+              </p>
+              <p className="prediction-text">
+                <strong>🌥️ AQI of Day After Tomorrow:</strong>{" "}
+                <span className="prediction-badge">{predictionDay2}</span>
+              </p>
+            </>
+          ) : (
+            <p className="prediction-text">
+              <span className="prediction-badge">No prediction yet</span>
+            </p>
+          )}
         </div>
-      )}
 
-      <AQIScale aqi={prediction} />
-
-      <BoyStatus aqi={prediction} />
-
-      <NavBar/>
-
-    </div>
+        <AQIScale aqi={predictionDay1} />
+        <BoyStatus aqi={predictionDay1} />
+        <NavBar />
+      </div>
     </>
   );
 }

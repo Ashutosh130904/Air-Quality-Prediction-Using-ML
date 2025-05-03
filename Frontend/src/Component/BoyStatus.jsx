@@ -12,9 +12,9 @@ const BoyStatus = ({ aqi }) => {
   };
 
   const getMessage = () => {
-    if (aqi <= 50) return "The air is clean! 😊";
-    if (aqi <= 150) return "Air quality is moderate. 😐";
-    return "Air is unhealthy! 😢";
+    if (aqi <= 50) return "Tommorow air will be clean! 😊";
+    if (aqi <= 150) return "Tommorow air will be moderate. 😐";
+    return "Tommorow air will be unhealthy! 😢";
   };
 
   return (

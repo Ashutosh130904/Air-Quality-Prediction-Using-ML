@@ -136,3 +136,10 @@ body {
       box-shadow: 0 0 20px #22c55e, 0 0 30px #22c55e;
     }
   }
+
+  .error-text {
+    color: red;
+    font-weight: bold;
+    margin-top: 4px;
+    font-size: 0.9rem;
+  }
